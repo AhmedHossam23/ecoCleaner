@@ -2,7 +2,6 @@ opencv-python-headless
 ultralytics
 firebase
 firebase-admin
-time
 tensorflow
 ultralytics
 streamlit
