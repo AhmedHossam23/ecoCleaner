@@ -161,9 +161,9 @@ This project demonstrates a real-time object detection system using an ESP-32 ca
 
 # Paths to your images
 image_paths = [
-    "ecoCleanerAPP/static/images/box.jpeg",
-    "ecoCleanerAPP/static/images/plastic.png",
-    "ecoCleanerAPP/static/images/detectionGlass.png"
+    "static/images/box.jpeg",
+    "static/images/plastic.png",
+    "static/images/detectionGlass.png"
 ]
 
 # Captions for your images
@@ -175,8 +175,8 @@ image_captions = [
 
 # Paths to your videos
 video_paths = [
-    "/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/videos/Design.mp4",
-    "/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/videos/mechanism.mp4"
+    "static/videos/Design.mp4",
+    "static/videos/mechanism.mp4"
 ]
 
 
