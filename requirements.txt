@@ -1,4 +1,4 @@
-ultralytics
+ultralytics==8.1.2
 firebase
 firebase-admin
 tensorflow
