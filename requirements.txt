@@ -1,0 +1,15 @@
+opencv-python-headless
+ultralytics
+firebase
+firebase-admin
+time
+tensorflow
+ultralytics
+streamlit
+opencv-python
+cvlib
+numpy
+matplotlib
+requests
+pillow
+urllib3
