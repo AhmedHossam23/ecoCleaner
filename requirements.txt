@@ -4,7 +4,7 @@ firebase-admin
 tensorflow
 ultralytics
 streamlit
-opencv-python
+opencv-python-headless
 cvlib
 numpy
 matplotlib
