@@ -310,14 +310,14 @@ def detect_objects(cam_url):
             break
 
 # Function to display the camera stream continuously
-def display_camera_stream(cam_url):
-    stframe = st.empty()
-    while not state.start_detection:
-        frame = load_from_esp_url(cam_url)
-        if frame is not None:
-            # Convert frame to RGB for Streamlit
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            stframe.image(frame, channels="RGB")
+# def display_camera_stream(cam_url):
+#     stframe = st.empty()
+#     while not state.start_detection:
+#         frame = load_from_esp_url(cam_url)
+#         if frame is not None:
+#             # Convert frame to RGB for Streamlit
+#             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#             stframe.image(frame, channels="RGB")
 
 
 # Buttons to start and stop detection
