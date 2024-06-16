@@ -2,7 +2,6 @@ import streamlit as st
 import ultralytics
 from ultralytics import YOLO
 import cv2
-import math
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
@@ -15,9 +14,11 @@ from io import BytesIO
 import requests
 from streamlit import session_state as state
 
-
 # Initialize the model
 model = YOLO("yolo-Weights/yolov8n.pt")
+
+# Initialize Firebase
+firebase = firebase.FirebaseApplication('https://khaled-ff982-default-rtdb.firebaseio.com/int', None)
 
 # Class names
 classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
@@ -58,13 +59,6 @@ def load_image_from_url(url):
         raise RuntimeError(f"Error fetching image from URL: {e}")
     except (IOError, ValueError) as e:
         raise RuntimeError(f"Error processing image data: {e}")
-
-
-# Function to load images from URL
-# def load_image_from_url(url):
-#     response = requests.get(url)
-#     return Image.open(BytesIO(response.content))
-
 
 # Custom CSS for header with white and green theme
 header_html = """
@@ -154,7 +148,7 @@ This project demonstrates a real-time object detection system using an ESP-32 ca
 #### Technologies Used:
 - **OpenCV**: For capturing video from the webcam and processing the frames.
 - **Streamlit**: For creating the web application and displaying the video stream and results.
-- **YOLOv5**: For providing the pre-trained object detection model.
+- **YOLOv8**: For providing the pre-trained object detection model.
 """)
 
 # Streamlit UI
@@ -179,30 +173,6 @@ video_paths = [
     "static/videos/mechanism.mp4"
 ]
 
-
-st.title("Custom Object Detection App")
-
-# Project description and examples 
-st.write("""
-This project demonstrates a real-time object detection system using a ESP-32 📸 Camera feed.
-The model detects objects in the video stream and displays bounding boxes around them.
-
-## Features:
-- **Real-time** object detection with bounding boxes and labels.
-- Interactive interface allowing users to start and stop the detection.
-- Display of the camera feed along with detection results.
-- Detailed project description with images and technology overview.
-
-## Technologies Used:
-- **OpenCV**: For capturing video from the webcam and processing the frames.
-- **Streamlit**: For creating the web application and displaying the video stream and results.
-- **YOLOv8**: For providing the pre-trained object detection model .
-
-*Below are some examples of object detection in action:*
-""")
-
-
-
 # Display images in a single row
 st.subheader("Images")
 image_cols = st.columns(len(image_paths))
@@ -211,44 +181,10 @@ for col, img_path, caption in zip(image_cols, image_paths, image_captions):
 
 # Display videos in a single row
 st.subheader("Videos")
-video_cols = st.columns(len(video_paths))
-for col, video_path in zip(video_cols, video_paths):
-    col.video(video_path, start_time=0)
+for video_path in video_paths:
+    st.video(video_path, start_time=0)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-
-
-
-
-
-# Display example images in the description section
-# example_image_urls = [
-#     "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.linkedin.com%2Fpulse%2Fopencv-java-yolo-object-detection-images-svetozar-radoj%25C4%258Din&psig=AOvVaw3lZtKWIzU5Nyl2gc_dC0yz&ust=1717256856763000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCLCMn7meuIYDFQAAAAAdAAAAABAR" , # Replace with actual URLs of example images
-#     "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.researchgate.net%2Ffigure%2FExample-of-Object-Detection-Bottle-Detection_fig4_341509210&psig=AOvVaw2Z3V5vXhRCeVwqvh8umj1c&ust=1717254510042000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCLjNrtqVuIYDFQAAAAAdAAAAABAJ"   # Replace with actual URLs of example images
-# ]
-# for url in example_image_urls:
-#     try:
-#         image = load_image_from_url(url)
-#         st.image(image, caption="Example Object Detection", use_column_width=True)
-#     except RuntimeError as e:
-#         st.error(f"Failed to load image from URL: {e}")
-
-# show the images and videos in streamlit UI
-
-# note that the directories is suitable for production not local host
-# st.image("/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/images/box.jpeg", caption="Our Box", use_column_width=True)
-# st.image("/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/images/plastic.png", caption="Our Box", use_column_width=True)
-# st.image("/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/images/detectionGlass.png", caption="Our Box", use_column_width=True)
-# st.video("/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/videos/Design.mp4", start_time=0)
-# st.video("/Users/user/Desktop/Work/RealTime/ecoCleanerAPP/static/videos/mechanism.mp4", start_time=0)
-
-
-
-
-st.sidebar.header("ESP-32 📸 Camera Settings and detection controller!")
-cam_url = st.sidebar.text_input("Camera IP:", "http://192.168.1.10/cam-hi.jpg")
-
 
 # Initialize session state variables
 if 'start_detection' not in state:
@@ -256,83 +192,71 @@ if 'start_detection' not in state:
 if 'stop_detection' not in state:
     state.stop_detection = False
 
+# Add option to use the local camera
+st.sidebar.header("Camera 📸 Settings and detection controller!")
+local_camera = st.sidebar.checkbox("Use Local Camera")
 
+# Add text input for camera IP when not using the local camera
+camera_ip = ""
+if not local_camera:
+    camera_ip = st.sidebar.text_input("Enter Camera IP Address")
 
-# Initialize Firebase
-firebase = firebase.FirebaseApplication('https://khaled-ff982-default-rtdb.firebaseio.com/int', None)
+# Functions to handle detection and display
+def detect_and_display(local_camera, cam_url):
+    if local_camera:
+        cap = cv2.VideoCapture(cam_url)
+        cap.set(3, 640)
+        cap.set(4, 480)
+        while cap.isOpened() and state.start_detection:
+            success, img = cap.read()
+            if success:
+                results = model(img, stream=True)
+                process_results(results, img, local_camera)
+                frame = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                stframe.image(frame, channels="RGB")
+            else:
+                break
+        cap.release()
+    else:
+        while state.start_detection:
+            frame = load_from_esp_url(cam_url)
+            if frame is not None:
+                results = model(frame, stream=True)
+                process_results(results, frame, local_camera)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                stframe.image(frame, channels="RGB")
 
-# Function to detect objects
-def detect_objects(cam_url):
-    stframe = st.empty()
-    
-    while state.start_detection:
-        frame = load_from_esp_url(cam_url)
-        
-        if frame is not None:
-            results = model(frame, stream=True)
-            firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 0)
-            
+def process_results(results, img, local_camera):
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            x1, y1, x2, y2 = int(box.xyxy[0][0]), int(box.xyxy[0][1]), int(box.xyxy[0][2]), int(box.xyxy[0][3])
+            class_id = int(box.cls[0])
+            class_name = classNames[class_id]
 
-            for r in results:
-                boxes = r.boxes
-                for box in boxes:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    if classNames[int(box.cls[0])] in filtered_classNames:
-                        confidence = math.ceil((box.conf[0] * 100)) / 100
-                        cls = int(box.cls[0])
-                        org = [x1, y1]
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        fontScale = 1
-                        color = (255, 0, 0)
-                        thickness = 2
+            if local_camera or class_name in filtered_classNames:
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(img, f'{class_name} {box.conf[0]:.2f}', (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-                        if confidence > 0.6 and classNames[cls] in filtered_classNames:
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 3)
-                            cv2.putText(frame, f"{classNames[cls]}: {confidence}", org, font, fontScale, color, thickness)
-                            # hardware signal control through firebase
-                            if classNames[cls] == 'bottle':
-                                firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 2)
-                                time.sleep(2)
-                                firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 0)
-                            elif classNames[cls] == 'cup' or classNames[cls] == 'wine glass':
-                                firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 1)
-                                time.sleep(3)
-                                firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 0)
-                            else:
-                                firebase.put("https://khaled-ff982-default-rtdb.firebaseio.com/int", "Ahmed", 0)
-                            
+# Default Camera URL
+cam_url = camera_ip if camera_ip else "http://192.168.4.1/cam-hi.jpg"
 
-            # Convert frame to RGB for Streamlit
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            stframe.image(frame, channels="RGB")
+# UI Elements to Start and Stop Detection
+start_button = st.sidebar.button("Start Detection")
+stop_button = st.sidebar.button("Stop Detection")
 
-        if state.stop_detection:
-            break
-
-# Function to display the camera stream continuously
-# def display_camera_stream(cam_url):
-#     stframe = st.empty()
-#     while not state.start_detection:
-#         frame = load_from_esp_url(cam_url)
-#         if frame is not None:
-#             # Convert frame to RGB for Streamlit
-#             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#             stframe.image(frame, channels="RGB")
-
-
-# Buttons to start and stop detection
-if st.sidebar.button("Start Detection"):
+if start_button:
     state.start_detection = True
-    state.stop_detection = False
+    stframe = st.empty()
+    detect_and_display(local_camera, 0 if local_camera else cam_url)
 
-if st.sidebar.button("Stop Detection"):
-    state.stop_detection = True
+if stop_button:
     state.start_detection = False
 
-# Control the stream based on the state
-if state.start_detection:
-    detect_objects(cam_url)
-else:
-    if state.stop_detection:
-        st.write("Detection stopped. Press 'Start Detection' to resume.")
+# # User Inputs for Waste Type Detection
+# waste_types = ["Plastic", "Glass", "Metal"]
+# selected_waste_type = st.sidebar.selectbox("Select Waste Type", waste_types)
 
+# if selected_waste_type:
+#     st.sidebar.write(f"Selected Waste Type: {selected_waste_type}")
